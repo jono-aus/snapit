@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<title>Snap-It SAR</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+:root {
+  --orange: #C85A00;
+  --orange-light: #F5EFE8;
+  --bg: #F5F2EE;
+  --surface: #FFFFFF;
+  --border: #D8D0C8;
+  --text: #1A1A1A;
+  --muted: #7A7068;
+  --green: #1A6B2A;
+  --red: #8B1A1A;
+}
+html, body { height: 100%; }
+body { font-family: -apple-system, 'Helvetica Neue', Arial, sans-serif; background: var(--bg); color: var(--text); max-width: 420px; margin: 0 auto; min-height: 100vh; overflow-x: hidden; }
+
+.topbar { background: var(--orange); padding: 14px 16px; display: flex; align-items: center; justify-content: space-between; }
+.topbar-title { color: #fff; font-size: 17px; font-weight: 600; }
+.topbar-back { color: #fff; font-size: 15px; font-weight: 600; cursor: pointer; padding: 4px 8px 4px 0; display: none; }
+
+.page { display: none; flex-direction: column; min-height: calc(100vh - 50px); }
+.page.active { display: flex; }
+
+/* PAGE 1 */
+.tag-section { background: var(--surface); margin: 12px 12px 0; border-radius: 14px; border: 1px solid var(--border); padding: 16px; }
+.tag-title { font-size: 20px; font-weight: 700; text-align: center; margin-bottom: 14px; }
+.tag-display { display: flex; align-items: center; border-bottom: 2px solid var(--border); margin-bottom: 4px; padding-bottom: 6px; }
+.tag-display-val { flex: 1; font-size: 26px; font-weight: 700; font-family: 'Courier New', monospace; letter-spacing: 2px; color: var(--orange); min-height: 38px; }
+.tag-display-val.empty { color: #C0B8B0; font-size: 16px; font-weight: 400; font-family: -apple-system, sans-serif; letter-spacing: 0; line-height: 38px; }
+.tag-search-btn { background: none; border: none; cursor: pointer; padding: 4px 0 4px 10px; }
+.tag-search-btn svg { width: 28px; height: 28px; fill: var(--muted); }
+.tag-search-btn.active svg { fill: var(--orange); }
+.tag-hint { font-size: 11px; color: var(--muted); min-height: 16px; margin-bottom: 10px; }
+
+.numpad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 4px; }
+.numpad-btn { background: var(--bg); border: 1px solid var(--border); border-radius: 10px; padding: 14px 0; font-size: 22px; font-weight: 600; cursor: pointer; text-align: center; transition: background 0.1s; user-select: none; }
+.numpad-btn:active { background: #E8DDD4; }
+.numpad-btn.del { font-size: 18px; color: var(--muted); }
+.numpad-btn.clr { font-size: 13px; color: var(--red); font-weight: 700; }
+
+.scan-block { margin: 10px 12px 0; }
+.or-row { display: flex; align-items: center; gap: 10px; padding: 10px 0; }
+.or-line { flex: 1; height: 1px; background: var(--border); }
+.or-text { font-size: 13px; color: var(--muted); font-weight: 600; }
+.scan-barcode-btn { background: var(--surface); border: 1.5px solid var(--border); border-radius: 14px; padding: 16px 12px 12px; cursor: pointer; text-align: center; transition: background 0.1s; }
+.scan-barcode-btn:active { background: var(--orange-light); }
+.scan-lbl { font-size: 17px; font-weight: 700; color: var(--orange); margin-bottom: 8px; }
+.barcode-img { width: 130px; height: 38px; }
+
+/* PAGE 2 */
+.cam-page { padding: 12px; gap: 10px; }
+.video-box { width: 100%; aspect-ratio: 4/3; background: #111; border-radius: 12px; overflow: hidden; position: relative; display: flex; align-items: center; justify-content: center; }
+.video-box video { width: 100%; height: 100%; object-fit: cover; }
+.vid-placeholder { color: #666; font-size: 12px; text-align: center; letter-spacing: 1px; text-transform: uppercase; line-height: 2; }
+.crosshair { position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); pointer-events: none; }
+.crosshair::before,.crosshair::after { content:''; position:absolute; background:rgba(200,90,0,0.7); }
+.crosshair::before { width:30px; height:1.5px; top:0; left:-15px; }
+.crosshair::after { width:1.5px; height:30px; top:-15px; left:0; }
+.cam-res { position:absolute; bottom:7px; right:10px; font-size:10px; color:rgba(255,255,255,0.6); }
+.cam-tag-badge { position:absolute; top:8px; left:10px; background:rgba(0,0,0,0.65); border-radius:6px; padding:4px 10px; font-size:13px; font-weight:700; color:#f0a500; font-family:'Courier New',monospace; letter-spacing:1px; }
+
+.cam-btns { display:flex; gap:8px; }
+.btn { border-radius:10px; padding:13px 8px; font-size:14px; font-weight:600; cursor:pointer; border:none; transition:opacity 0.1s,transform 0.1s; text-align:center; }
+.btn:active { transform:scale(0.97); opacity:0.85; }
+.btn:disabled { opacity:0.3; cursor:not-allowed; transform:none; }
+.btn-outline { flex:1; background:var(--bg); border:1.5px solid var(--border); color:var(--text); }
+.btn-orange { flex:2; background:var(--orange); color:#fff; font-size:16px; }
+.btn-green { width:100%; background:var(--green); color:#fff; font-size:15px; padding:14px; border-radius:10px; border:none; cursor:pointer; font-weight:700; }
+.btn-green:disabled { opacity:0.3; cursor:not-allowed; }
+.btn-ghost { width:100%; background:transparent; border:1.5px solid var(--border); color:var(--muted); font-size:13px; padding:11px; border-radius:10px; cursor:pointer; margin-top:6px; border-style:solid; }
+
+.shots-wrap { background:var(--surface); border-radius:12px; border:1px solid var(--border); padding:12px 14px; display:none; }
+.shots-head { font-size:12px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:1px; margin-bottom:10px; display:flex; align-items:center; justify-content:space-between; }
+.shots-badge { background:var(--orange); color:#fff; border-radius:20px; font-size:11px; font-weight:700; padding:2px 9px; }
+.shots-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:7px; }
+.shot-card { position:relative; aspect-ratio:4/3; background:var(--bg); border-radius:8px; overflow:hidden; border:1px solid var(--border); }
+.shot-card img { width:100%; height:100%; object-fit:cover; display:block; }
+.shot-lbl { position:absolute; bottom:0; left:0; right:0; background:rgba(0,0,0,0.65); padding:3px 4px; font-size:8px; color:#fff; text-align:center; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
+.shot-del { position:absolute; top:4px; right:4px; width:20px; height:20px; background:rgba(180,30,30,0.9); border:none; border-radius:50%; color:#fff; font-size:13px; line-height:20px; text-align:center; cursor:pointer; padding:0; font-weight:700; }
+
+.log-box { background:var(--surface); border-radius:12px; border:1px solid var(--border); padding:10px 14px; }
+.log { max-height:80px; overflow-y:auto; }
+.log-line { font-size:11px; color:var(--muted); line-height:1.8; }
+.log-line.ok { color:var(--green); }
+.log-line.err { color:var(--red); }
+.log-line.hi { color:var(--orange); font-weight:600; }
+
+/* SCAN OVERLAY */
+.scan-overlay { display:none; position:fixed; inset:0; background:#000; z-index:100; flex-direction:column; }
+.scan-overlay.active { display:flex; }
+.scan-overlay video { width:100%; height:100%; object-fit:cover; }
+.scan-overlay-top { position:absolute; top:0; left:0; right:0; background:rgba(0,0,0,0.7); padding:14px 16px; display:flex; align-items:center; gap:10px; }
+.scan-cancel { color:#fff; font-size:15px; font-weight:600; cursor:pointer; padding:4px 10px 4px 0; }
+.scan-overlay-title { color:#fff; font-size:16px; font-weight:600; }
+.scan-frame { position:absolute; top:50%; left:50%; transform:translate(-50%,-60%); width:280px; height:100px; border:2px solid #C85A00; border-radius:8px; }
+.scan-hint { position:absolute; bottom:80px; left:0; right:0; text-align:center; color:rgba(255,255,255,0.7); font-size:13px; }
+canvas { display:none; }
+</style>
+</head>
+<body>
+
+<!-- BARCODE SCAN OVERLAY -->
+<div class="scan-overlay" id="scanOverlay">
+  <video id="scanVideo" autoplay playsinline muted></video>
+  <div class="scan-overlay-top">
+    <span class="scan-cancel" id="cancelScan">✕ Cancel</span>
+    <span class="scan-overlay-title">Point at barcode</span>
+  </div>
+  <div class="scan-frame"></div>
+  <div class="scan-hint">Hold steady — scanning…</div>
+</div>
+
+<!-- PAGE 1: TAG ENTRY -->
+<div class="page active" id="page1">
+  <div class="topbar">
+    <span class="topbar-title">Scan or Enter a Barcode</span>
+    <span style="color:rgba(255,255,255,0.7);font-size:22px">⋮</span>
+  </div>
+
+  <div class="tag-section">
+    <div class="tag-title">Enter the Tag#</div>
+    <div class="tag-display">
+      <div class="tag-display-val empty" id="tagDisplay">Type or scan…</div>
+      <button class="tag-search-btn" id="goToCamera">
+        <svg viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27A6.47 6.47 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
+      </button>
+    </div>
+    <div class="tag-hint" id="tagHint">Enter digits then tap search</div>
+    <div class="numpad">
+      <button class="numpad-btn" data-n="1">1</button>
+      <button class="numpad-btn" data-n="2">2</button>
+      <button class="numpad-btn" data-n="3">3</button>
+      <button class="numpad-btn" data-n="4">4</button>
+      <button class="numpad-btn" data-n="5">5</button>
+      <button class="numpad-btn" data-n="6">6</button>
+      <button class="numpad-btn" data-n="7">7</button>
+      <button class="numpad-btn" data-n="8">8</button>
+      <button class="numpad-btn" data-n="9">9</button>
+      <button class="numpad-btn clr" data-action="clr">CLR</button>
+      <button class="numpad-btn" data-n="0">0</button>
+      <button class="numpad-btn del" data-action="del">⌫</button>
+    </div>
+  </div>
+
+  <div class="scan-block">
+    <div class="or-row">
+      <div class="or-line"></div>
+      <div class="or-text">- OR -</div>
+      <div class="or-line"></div>
+    </div>
+    <div class="scan-barcode-btn" id="openBarcodeScanner">
+      <div class="scan-lbl">Scan a Barcode Label</div>
+      <svg class="barcode-img" viewBox="0 0 130 38" xmlns="http://www.w3.org/2000/svg">
+        <rect x="0" y="0" width="3" height="38" fill="#1A1A1A"/>
+        <rect x="5" y="0" width="1" height="38" fill="#1A1A1A"/>
+        <rect x="8" y="0" width="2" height="38" fill="#1A1A1A"/>
+        <rect x="12" y="0" width="3" height="38" fill="#1A1A1A"/>
+        <rect x="17" y="0" width="1" height="38" fill="#1A1A1A"/>
+        <rect x="20" y="0" width="2" height="38" fill="#1A1A1A"/>
+        <rect x="24" y="0" width="4" height="38" fill="#1A1A1A"/>
+        <rect x="30" y="0" width="1" height="38" fill="#1A1A1A"/>
+        <rect x="33" y="0" width="3" height="38" fill="#1A1A1A"/>
+        <rect x="38" y="0" width="2" height="38" fill="#1A1A1A"/>
+        <rect x="42" y="0" width="1" height="38" fill="#1A1A1A"/>
+        <rect x="45" y="0" width="4" height="38" fill="#1A1A1A"/>
+        <rect x="51" y="0" width="2" height="38" fill="#1A1A1A"/>
+        <rect x="55" y="0" width="1" height="38" fill="#1A1A1A"/>
+        <rect x="58" y="0" width="3" height="38" fill="#1A1A1A"/>
+        <rect x="63" y="0" width="2" height="38" fill="#1A1A1A"/>
+        <rect x="67" y="0" width="1" height="38" fill="#1A1A1A"/>
+        <rect x="70" y="0" width="4" height="38" fill="#1A1A1A"/>
+        <rect x="76" y="0" width="1" height="38" fill="#1A1A1A"/>
+        <rect x="79" y="0" width="2" height="38" fill="#1A1A1A"/>
+        <rect x="83" y="0" width="3" height="38" fill="#1A1A1A"/>
+        <rect x="88" y="0" width="1" height="38" fill="#1A1A1A"/>
+        <rect x="91" y="0" width="2" height="38" fill="#1A1A1A"/>
+        <rect x="95" y="0" width="4" height="38" fill="#1A1A1A"/>
+        <rect x="101" y="0" width="1" height="38" fill="#1A1A1A"/>
+        <rect x="104" y="0" width="3" height="38" fill="#1A1A1A"/>
+        <rect x="109" y="0" width="2" height="38" fill="#1A1A1A"/>
+        <rect x="113" y="0" width="1" height="38" fill="#1A1A1A"/>
+        <rect x="116" y="0" width="4" height="38" fill="#1A1A1A"/>
+        <rect x="122" y="0" width="2" height="38" fill="#1A1A1A"/>
+        <rect x="126" y="0" width="3" height="38" fill="#1A1A1A"/>
+      </svg>
+    </div>
+  </div>
+</div>
+
+<!-- PAGE 2: CAMERA -->
+<div class="page cam-page" id="page2">
+  <div class="topbar">
+    <span class="topbar-back" id="backBtn">&#8592; Back</span>
+    <span class="topbar-title" id="camTopbarTitle">Camera</span>
+    <span style="color:rgba(255,255,255,0.7);font-size:22px">⋮</span>
+  </div>
+
+  <div class="video-box">
+    <div class="vid-placeholder" id="vidPlaceholder">Starting camera…</div>
+    <video id="camVideo" autoplay playsinline style="display:none"></video>
+    <div class="crosshair" id="crosshair" style="display:none"></div>
+    <div class="cam-res" id="camRes"></div>
+    <div class="cam-tag-badge" id="camTagBadge"></div>
+  </div>
+
+  <div class="cam-btns">
+    <button class="btn btn-outline" id="flipBtn">&#8635; Flip</button>
+    <button class="btn btn-orange" id="shootBtn" disabled>&#9679; Shoot</button>
+  </div>
+
+  <div class="shots-wrap" id="shotsWrap">
+    <div class="shots-head">
+      Photos
+      <span class="shots-badge" id="shotsBadge">0</span>
+    </div>
+    <div class="shots-grid" id="shotsGrid"></div>
+  </div>
+
+  <div class="log-box">
+    <div class="log" id="log"><div class="log-line">Ready.</div></div>
+  </div>
+
+  <button class="btn-green" id="saveBtn" disabled>&#8595; Save All to Device</button>
+  <button class="btn-ghost" id="newTagBtn">&#8635; New Tag</button>
+</div>
+
+<canvas id="canvas"></canvas>
+
+<script>
+const page1 = document.getElementById('page1');
+const page2 = document.getElementById('page2');
+const tagDisplay = document.getElementById('tagDisplay');
+const tagHint = document.getElementById('tagHint');
+const goToCamera = document.getElementById('goToCamera');
+const backBtn = document.getElementById('backBtn');
+const camTopbarTitle = document.getElementById('camTopbarTitle');
+const camTagBadge = document.getElementById('camTagBadge');
+const openBarcodeScanner = document.getElementById('openBarcodeScanner');
+const scanOverlay = document.getElementById('scanOverlay');
+const scanVideo = document.getElementById('scanVideo');
+const cancelScan = document.getElementById('cancelScan');
+const camVideo = document.getElementById('camVideo');
+const vidPlaceholder = document.getElementById('vidPlaceholder');
+const crosshair = document.getElementById('crosshair');
+const camRes = document.getElementById('camRes');
+const flipBtn = document.getElementById('flipBtn');
+const shootBtn = document.getElementById('shootBtn');
+const saveBtn = document.getElementById('saveBtn');
+const newTagBtn = document.getElementById('newTagBtn');
+const shotsWrap = document.getElementById('shotsWrap');
+const shotsGrid = document.getElementById('shotsGrid');
+const shotsBadge = document.getElementById('shotsBadge');
+const log = document.getElementById('log');
+const canvas = document.getElementById('canvas');
+
+let tagRaw = '', tagFormatted = '', camStream = null, scanStream = null;
+let facing = 'environment', shots = [];
+
+function fmt(raw) {
+  const d = raw.replace(/\D/g, '');
+  return d ? '2-' + d.padStart(10, '0') : '';
+}
+
+function fname(tag, i) {
+  return i === 0 ? tag + '.jpg' : tag + '.' + i + '.jpg';
+}
+
+function logMsg(msg, type) {
+  const d = document.createElement('div');
+  d.className = 'log-line' + (type ? ' ' + type : '');
+  d.textContent = msg;
+  log.appendChild(d);
+  log.scrollTop = log.scrollHeight;
+}
+
+// NUMPAD
+document.querySelectorAll('.numpad-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const n = btn.dataset.n, a = btn.dataset.action;
+    if (n !== undefined && tagRaw.length < 10) tagRaw += n;
+    else if (a === 'del') tagRaw = tagRaw.slice(0, -1);
+    else if (a === 'clr') tagRaw = '';
+    updateTagDisplay();
+  });
+});
+
+function updateTagDisplay() {
+  tagFormatted = fmt(tagRaw);
+  if (tagRaw) {
+    tagDisplay.textContent = tagFormatted || tagRaw;
+    tagDisplay.classList.remove('empty');
+    tagHint.textContent = tagFormatted ? 'Tap search to open camera' : 'Keep typing…';
+    goToCamera.classList.add('active');
+  } else {
+    tagDisplay.textContent = 'Type or scan…';
+    tagDisplay.classList.add('empty');
+    tagHint.textContent = 'Enter digits then tap search — or scan with Bluetooth scanner';
+    goToCamera.classList.remove('active');
+  }
+}
+
+goToCamera.addEventListener('click', () => {
+  if (tagFormatted) showCameraPage();
+});
+
+// BLUETOOTH SCANNER — types digits fast then sends Enter
+// We listen for keydown events on the page (scanner acts as keyboard)
+let btBuffer = '', btTimer = null;
+
+document.addEventListener('keydown', (e) => {
+  // Only active on page 1
+  if (!page1.classList.contains('active')) return;
+
+  if (e.key >= '0' && e.key <= '9') {
+    btBuffer += e.key;
+    // Reset timeout — scanner sends all chars within ~100ms
+    clearTimeout(btTimer);
+    btTimer = setTimeout(() => { btBuffer = ''; }, 500);
+  } else if (e.key === 'Enter') {
+    clearTimeout(btTimer);
+    if (btBuffer.length >= 3) {
+      // Scanner fired — use buffered digits
+      tagRaw = btBuffer.slice(-10);
+      tagFormatted = fmt(tagRaw);
+      btBuffer = '';
+      updateTagDisplay();
+      if (tagFormatted) {
+        // Brief flash then jump to camera
+        tagHint.textContent = '✓ Barcode read — opening camera…';
+        setTimeout(() => showCameraPage(), 400);
+      }
+    } else if (tagFormatted) {
+      // Manual entry + Enter key
+      showCameraPage();
+    }
+    btBuffer = '';
+  } else if (e.key === 'Backspace') {
+    btBuffer = '';
+    tagRaw = tagRaw.slice(0, -1);
+    updateTagDisplay();
+  }
+});
+
+// BARCODE SCANNER
+openBarcodeScanner.addEventListener('click', async () => {
+  try {
+    scanStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false });
+    scanVideo.srcObject = scanStream;
+    scanOverlay.classList.add('active');
+    startZxing();
+  } catch(e) {
+    alert('Camera permission needed for scanning.');
+  }
+});
+
+cancelScan.addEventListener('click', stopScan);
+
+let scanRunning = false;
+
+function stopScan() {
+  scanRunning = false;
+  if (scanStream) { scanStream.getTracks().forEach(t => t.stop()); scanStream = null; }
+  scanOverlay.classList.remove('active');
+}
+
+async function startZxing() {
+  if (!('BarcodeDetector' in window)) {
+    stopScan();
+    alert('Barcode scanning not supported on this browser. Use the numpad to enter the tag manually.');
+    return;
+  }
+  const detector = new BarcodeDetector({ formats: ['code_128','code_39','ean_13','ean_8','upc_a','upc_e','itf','codabar'] });
+  scanRunning = true;
+  const sc = document.createElement('canvas');
+  const ctx = sc.getContext('2d');
+  async function tick() {
+    if (!scanRunning) return;
+    if (scanVideo.readyState === scanVideo.HAVE_ENOUGH_DATA) {
+      sc.width = scanVideo.videoWidth;
+      sc.height = scanVideo.videoHeight;
+      ctx.drawImage(scanVideo, 0, 0);
+      try {
+        const results = await detector.detect(sc);
+        if (results.length > 0) {
+          const text = results[0].rawValue.replace(/\D/g, '');
+          if (text) {
+            tagRaw = text.slice(-10);
+            tagFormatted = fmt(tagRaw);
+            updateTagDisplay();
+            stopScan();
+            showCameraPage();
+            return;
+          }
+        }
+      } catch(e) {}
+    }
+    if (scanRunning) requestAnimationFrame(tick);
+  }
+  requestAnimationFrame(tick);
+}
+
+// CAMERA PAGE
+async function showCameraPage() {
+  page1.classList.remove('active');
+  page2.classList.add('active');
+  backBtn.style.display = 'block';
+  camTopbarTitle.textContent = tagFormatted;
+  camTagBadge.textContent = tagFormatted;
+  await startCam();
+}
+
+async function startCam() {
+  if (camStream) { camStream.getTracks().forEach(t => t.stop()); camStream = null; }
+  vidPlaceholder.style.display = 'flex';
+  camVideo.style.display = 'none';
+  crosshair.style.display = 'none';
+  try {
+    camStream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: facing, width: { ideal: 3840 }, height: { ideal: 2160 } },
+      audio: false
+    });
+    camVideo.srcObject = camStream;
+    camVideo.style.display = 'block';
+    vidPlaceholder.style.display = 'none';
+    crosshair.style.display = 'block';
+    shootBtn.disabled = false;
+    const s = camStream.getVideoTracks()[0].getSettings();
+    camRes.textContent = (s.width || '?') + '×' + (s.height || '?');
+    logMsg('Camera ready · ' + (s.width || '?') + '×' + (s.height || '?'), 'hi');
+  } catch(e) {
+    logMsg('Camera error: ' + e.message, 'err');
+    vidPlaceholder.textContent = 'Camera error — check permissions';
+  }
+}
+
+flipBtn.addEventListener('click', async () => {
+  facing = facing === 'environment' ? 'user' : 'environment';
+  await startCam();
+});
+
+shootBtn.addEventListener('click', () => {
+  if (!camStream) return;
+  const s = camStream.getVideoTracks()[0].getSettings();
+  const w = s.width || camVideo.videoWidth;
+  const h = s.height || camVideo.videoHeight;
+  canvas.width = w;
+  canvas.height = h;
+  canvas.getContext('2d').drawImage(camVideo, 0, 0, w, h);
+  canvas.toBlob(blob => {
+    const idx = shots.length;
+    shots.push({ blob, url: URL.createObjectURL(blob), w, h });
+    renderShots();
+    saveBtn.disabled = false;
+    logMsg('Shot ' + (idx + 1) + ' · ' + w + '×' + h + 'px', 'ok');
+  }, 'image/jpeg', 0.95);
+});
+
+function renderShots() {
+  shotsGrid.innerHTML = '';
+  shots.forEach((s, i) => {
+    const card = document.createElement('div');
+    card.className = 'shot-card';
+    const img = document.createElement('img');
+    img.src = s.url;
+    const lbl = document.createElement('div');
+    lbl.className = 'shot-lbl';
+    lbl.textContent = fname(tagFormatted, i);
+    const del = document.createElement('button');
+    del.className = 'shot-del';
+    del.textContent = '×';
+    del.onclick = () => {
+      URL.revokeObjectURL(s.url);
+      shots.splice(i, 1);
+      renderShots();
+      if (!shots.length) saveBtn.disabled = true;
+    };
+    card.append(img, lbl, del);
+    shotsGrid.appendChild(card);
+  });
+  shotsWrap.style.display = shots.length ? 'block' : 'none';
+  shotsBadge.textContent = shots.length;
+}
+
+saveBtn.addEventListener('click', async () => {
+  logMsg('Saving ' + shots.length + ' file(s)…', 'hi');
+  for (let i = 0; i < shots.length; i++) {
+    const n = fname(tagFormatted, i);
+    const a = document.createElement('a');
+    a.href = shots[i].url;
+    a.download = n;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    await new Promise(r => setTimeout(r, 350));
+    logMsg('Saved: ' + n, 'ok');
+  }
+  logMsg('Done — ' + shots.length + ' file(s) for ' + tagFormatted, 'ok');
+});
+
+newTagBtn.addEventListener('click', () => {
+  if (camStream) { camStream.getTracks().forEach(t => t.stop()); camStream = null; }
+  shots.forEach(s => URL.revokeObjectURL(s.url));
+  shots = [];
+  tagRaw = '';
+  tagFormatted = '';
+  updateTagDisplay();
+  renderShots();
+  saveBtn.disabled = true;
+  shootBtn.disabled = true;
+  camRes.textContent = '';
+  log.innerHTML = '<div class="log-line">Ready.</div>';
+  page2.classList.remove('active');
+  page1.classList.add('active');
+  backBtn.style.display = 'none';
+});
+
+backBtn.addEventListener('click', () => {
+  if (camStream) { camStream.getTracks().forEach(t => t.stop()); camStream = null; }
+  page2.classList.remove('active');
+  page1.classList.add('active');
+  backBtn.style.display = 'none';
+});
+</script>
+</body>
+</html>
